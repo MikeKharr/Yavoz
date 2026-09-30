@@ -11,7 +11,7 @@ from urllib.parse import parse_qs, urlparse
 
 from .config import Config, read_config
 from .process import Обработчик, журнал, сохранить_журнал
-from .search import Search
+from .search import создать
 from .yadisk import PREFIX, Disk, processed_path
 
 РАБОЧИЙ = Path(__file__).resolve().parent.parent / "work"
@@ -78,7 +78,7 @@ function доб(н,текст,знак){
 
 def обработать_каталог(cfg: Config, folder: str, событие) -> None:
     диск = Disk(cfg.yadisk_token)
-    поиск = Search(cfg.search_api_key, cfg.folder_id)
+    поиск = создать(cfg.источник, cfg.search_api_key, cfg.folder_id)
     обработчик = Обработчик(поиск)
     файлы = диск.list_xlsx(folder)
     событие({"вид": "файл", "лист": "—", "строк": 0, "файл": f"найдено файлов: {len(файлы)}"})

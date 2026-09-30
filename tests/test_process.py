@@ -140,3 +140,41 @@ class ОбработкаФайла(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ВыборИсточника2(unittest.TestCase):
+    """Источник выбирается настройкой, и обязательность доступов от него зависит."""
+
+    def test_по_умолчанию_бесплатный_и_ключи_яндекса_не_нужны(self):
+        from yavoz.config import Config
+        cfg = Config(yadisk_token="t", search_api_key="", folder_id="",
+                     port=1, max_rows=0, источник="ddg")
+        self.assertEqual(cfg.missing, [])
+
+    def test_для_яндекса_ключ_и_каталог_обязательны(self):
+        from yavoz.config import Config
+        cfg = Config(yadisk_token="t", search_api_key="", folder_id="",
+                     port=1, max_rows=0, источник="yandex")
+        self.assertEqual(cfg.missing, ["YANDEX_SEARCH_API_KEY", "YANDEX_FOLDER_ID"])
+
+    def test_токен_диска_обязателен_при_любом_источнике(self):
+        from yavoz.config import Config
+        for источник in ("ddg", "yandex"):
+            cfg = Config(yadisk_token="", search_api_key="k", folder_id="f",
+                         port=1, max_rows=0, источник=источник)
+            self.assertIn("YADISK_TOKEN", cfg.missing)
+
+    def test_неизвестный_источник_отказывает_а_не_молчит(self):
+        from yavoz.search import SearchError, создать
+        with self.assertRaises(SearchError):
+            создать("выдуманный")
+
+    def test_бесплатный_источник_выдерживает_паузу_между_запросами(self):
+        import time as _time
+        from yavoz.search import DuckSearch
+        поиск = DuckSearch(пауза=0.05)
+        поиск._DDGS = lambda: type("X", (), {"text": lambda *a, **k: []})()
+        начало = _time.monotonic()
+        поиск.find("раз")
+        поиск.find("два")
+        self.assertGreaterEqual(_time.monotonic() - начало, 0.05)

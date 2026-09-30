@@ -28,16 +28,19 @@ class Config:
     folder_id: str
     port: int
     max_rows: int
+    источник: str
 
     @property
     def missing(self) -> list[str]:
+        """Обязательно только то, без чего выбранный путь не работает."""
         нет = []
         if not self.yadisk_token:
             нет.append("YADISK_TOKEN")
-        if not self.search_api_key:
-            нет.append("YANDEX_SEARCH_API_KEY")
-        if not self.folder_id:
-            нет.append("YANDEX_FOLDER_ID")
+        if self.источник == "yandex":
+            if not self.search_api_key:
+                нет.append("YANDEX_SEARCH_API_KEY")
+            if not self.folder_id:
+                нет.append("YANDEX_FOLDER_ID")
         return нет
 
 
@@ -49,4 +52,5 @@ def read_config() -> Config:
         folder_id=os.environ.get("YANDEX_FOLDER_ID", "").strip(),
         port=int(os.environ.get("YAVOZ_PORT", "8765")),
         max_rows=int(os.environ.get("YAVOZ_MAX_ROWS", "0")),
+        источник=os.environ.get("YAVOZ_SEARCH", "ddg").strip().lower(),
     )
