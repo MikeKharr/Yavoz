@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import json
 import time
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Callable, Iterable
@@ -73,10 +74,20 @@ def выбрать(персона: Персона, находки: list[Hit],
         предварительно.append(((-балл, класс.порядок, h.url), h, о))
     предварительно.sort(key=lambda т: т[0])
 
+    # Верхние кандидаты читаются разом: они на разных сайтах, и последовательное
+    # чтение было половиной времени строки. Порядок результатов сохраняется —
+    # каждая загрузка возвращается на своё место, детерминированность цела.
+    верхние = [h.url for _, h, _ in предварительно[:ЧИТАЕМ]]
+    прочитанное: dict[str, tuple[str, str]] = {}
+    if верхние:
+        with ThreadPoolExecutor(max_workers=len(верхние)) as пул:
+            for url, итог in zip(верхние, пул.map(читатель, верхние)):
+                прочитанное[url] = итог
+
     кандидаты: list[Кандидат] = []
     for место, (_, h, о_адрес) in enumerate(предварительно):
         if место < ЧИТАЕМ:
-            текст, заголовок = читатель(h.url)
+            текст, заголовок = прочитанное.get(h.url, ("", ""))
         else:
             текст, заголовок = f"{h.title} {h.snippet}", h.title
         о_текст = оценить_текст(текст, персона, заголовок or h.title, h.url)
