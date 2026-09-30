@@ -122,9 +122,16 @@ textarea:focus-visible{outline:2px solid var(--акцент);outline-offset:1px}
       <label for="каталог">Путь к каталогу на Диске</label>
       <input id="каталог" value="disk:/yavoz" placeholder="disk:/Верификация">
     </div>
+    <div style="flex:0 0 190px">
+      <label for="предел">Строк из файла</label>
+      <input id="предел" type="number" min="0" step="1" value="0">
+    </div>
     <button id="пуск">Обработать</button>
   </div>
   <p class="помощь" id="ссылка-каталога"></p>
+  <p class="помощь"><b>Строк из файла</b>: <code>0</code> — обрабатывать целиком.
+  Любое другое число берёт столько первых строк — это для пробы, чтобы посмотреть
+  качество и не ждать полчаса.</p>
   <p class="помощь">Берутся все <code>.xlsx</code> каталога, кроме уже обработанных.
   Строки, где столбец V заполнен, пропускаются.</p>
   <div id="ход" hidden>
@@ -280,7 +287,9 @@ $('#пуск').onclick = async () => {
   $('#строки').innerHTML = '';
   $('#ход').hidden = false;
   $('#шапка').textContent = 'Читаю каталог…';
-  const s = new EventSource('/run?folder=' + encodeURIComponent(каталог));
+  const предел = Math.max(0, parseInt($('#предел').value, 10) || 0);
+  const s = new EventSource('/run?folder=' + encodeURIComponent(каталог)
+    + '&limit=' + предел);
   s.onmessage = e => {
     const д = JSON.parse(e.data);
     if(д.вид === 'файл'){
@@ -407,6 +416,7 @@ async function состояние(){
   if(с.токен_маска){ $('#токен').value = с.токен_маска; }
   else { $('#токен').value = ''; $('#токен').placeholder = 'вставьте токен'; }
   if(с.каталог) $('#каталог').value = с.каталог;
+  if(typeof с.предел_строк === 'number') $('#предел').value = с.предел_строк;
   обновитьСсылку();
 }
 состояние();

@@ -23,7 +23,8 @@ from .yadisk import PREFIX, Disk, processed_path
 ПРЕДЕЛ_ТЕЛА = 64 * 1024
 
 
-def обработать_каталог(cfg: Config, токен: str, folder: str, событие) -> None:
+def обработать_каталог(cfg: Config, токен: str, folder: str, событие,
+                       предел: int | None = None) -> None:
     диск = Disk(токен)
     поиск = создать(cfg.источник, cfg.search_api_key, cfg.folder_id)
     обработчик = Обработчик(поиск, каталог=Каталог.прочитать(КАТАЛОГ))
@@ -38,7 +39,8 @@ def обработать_каталог(cfg: Config, токен: str, folder: st
         диск.download(ф.path, местный)
         цель = РАБОЧИЙ / f"{PREFIX}{ф.name}"
         событие({"вид": "файл", "лист": "—", "строк": 0, "файл": ф.name})
-        итоги = обработчик.файл(местный, цель, предел=cfg.max_rows, событие=событие)
+        итоги = обработчик.файл(местный, цель, событие=событие,
+                                предел=cfg.max_rows if предел is None else предел)
         диск.upload(цель, processed_path(folder, ф.name))
         сохранить_журнал(журнал(итоги, ф.name), stats.путь_журнала(РАБОЧИЙ, ф.name))
     событие({"вид": "готово", "текст": f"Готово: файлов {len(файлы)}"})
@@ -88,7 +90,12 @@ class Ручка(BaseHTTPRequestHandler):
                            for кл in sorted(КЛАССЫ.values(), key=lambda к: к.порядок)],
             })
         elif путь == "/run":
-            self._поток(parse_qs(urlparse(self.path).query).get("folder", ["disk:/"])[0])
+            запрос = parse_qs(urlparse(self.path).query)
+            try:
+                предел = max(0, int(запрос.get("limit", ["0"])[0]))
+            except ValueError:
+                предел = 0
+            self._поток(запрос.get("folder", ["disk:/"])[0], предел)
         else:
             self._json(404, {"ошибка": "нет такого пути"})
 
@@ -149,7 +156,7 @@ class Ручка(BaseHTTPRequestHandler):
 
     # --- поток событий ---
 
-    def _поток(self, folder: str) -> None:
+    def _поток(self, folder: str, предел: int = 0) -> None:
         if not self.токены.задан:
             self.send_response(200)
             self.send_header("Content-Type", "text/event-stream; charset=utf-8")
@@ -167,7 +174,7 @@ class Ручка(BaseHTTPRequestHandler):
 
         def работа() -> None:
             try:
-                обработать_каталог(self.cfg, токен, folder, очередь.put)
+                обработать_каталог(self.cfg, токен, folder, очередь.put, предел)
             except Exception as err:
                 traceback.print_exc()
                 очередь.put({"вид": "ошибка", "текст": f"{type(err).__name__}: {err}"})
