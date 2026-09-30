@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import stats
+from . import ВЕРСИЯ
 from .catalog import КЛАССЫ, ФАЙЛ, Каталог
 from .config import ROOT, Config, read_config
 from .page import СТРАНИЦА
@@ -20,6 +21,10 @@ from .yadisk import PREFIX, Disk, processed_path
 
 РАБОЧИЙ = ROOT / "work"
 КАТАЛОГ = ROOT / ФАЙЛ
+# Значок берётся из файла проекта: чтобы поставить свой, положите рядом
+# favicon.svg, favicon.png или favicon.ico — первый найденный и пойдёт.
+ЗНАЧКИ = (("favicon.svg", "image/svg+xml"), ("favicon.png", "image/png"),
+          ("favicon.ico", "image/x-icon"))
 ПРЕДЕЛ_ТЕЛА = 64 * 1024
 
 
@@ -74,11 +79,14 @@ class Ручка(BaseHTTPRequestHandler):
         if путь == "/":
             self._отдать(200, СТРАНИЦА.encode("utf-8"), "text/html; charset=utf-8")
         elif путь == "/api/state":
-            self._json(200, {"токен_задан": self.токены.задан,
+            self._json(200, {"версия": ВЕРСИЯ,
+                             "токен_задан": self.токены.задан,
                              "токен_маска": self.токены.маска,
                              "каталог": type(self).последний_каталог,
                              "источник": self.cfg.источник,
                              "предел_строк": self.cfg.max_rows})
+        elif путь == "/favicon.ico":
+            self._значок()
         elif путь == "/api/stats":
             self._json(200, stats.как_json(РАБОЧИЙ))
         elif путь == "/api/catalog":
@@ -127,6 +135,14 @@ class Ручка(BaseHTTPRequestHandler):
             self._json(500, {"ошибка": "не удалось записать .env"})
             return
         self._json(200, {"задан": True, "сохранён": bool(данные.get("сохранить"))})
+
+    def _значок(self) -> None:
+        for имя, тип in ЗНАЧКИ:
+            файл = ROOT / имя
+            if файл.is_file():
+                self._отдать(200, файл.read_bytes(), тип)
+                return
+        self._json(404, {"ошибка": "значок не найден"})
 
     def _сохранить_каталог(self, данные: dict) -> None:
         правила = данные.get("правила")
@@ -208,7 +224,7 @@ def main() -> None:
         # Источник выдачи ключа со страницы не получает — это остаётся в .env.
         print("Не заданы: " + ", ".join(п for п in cfg.missing if п != "YADISK_TOKEN"))
         print("См. README.md, раздел «Откуда берётся выдача»")
-    print(f"Yavoz: http://127.0.0.1:{cfg.port}")
+    print(f"Yavoz {ВЕРСИЯ}: http://127.0.0.1:{cfg.port}")
     if not Ручка.токены.задан:
         print("Токен Яндекс.Диска не задан — введите его на странице")
     ThreadingHTTPServer(("127.0.0.1", cfg.port), Ручка).serve_forever()

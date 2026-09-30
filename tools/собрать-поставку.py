@@ -11,8 +11,13 @@ import sys
 import zipfile
 from pathlib import Path
 
+import sys as _sys
+_sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from yavoz import ВЕРСИЯ  # noqa: E402
+
 КОРЕНЬ = Path(__file__).resolve().parent.parent
 ИМЯ = "Yavoz"
+ПАПКА = f"{ИМЯ}-{ВЕРСИЯ}"
 ЗАПРЕЩЕНО = (".env", ".venv", "work", ".git", "__pycache__")
 ПРИЗНАК_ТОКЕНА = "y0_"
 
@@ -21,11 +26,16 @@ def собрать() -> list[tuple[Path, str]]:
     """Пары «файл на диске → путь внутри архива»."""
     состав: list[tuple[Path, str]] = []
     for файл in sorted((КОРЕНЬ / "yavoz").glob("*.py")):
-        состав.append((файл, f"{ИМЯ}/yavoz/{файл.name}"))
+        состав.append((файл, f"{ПАПКА}/yavoz/{файл.name}"))
     for имя in ("requirements.txt", "catalog.json"):
-        состав.append((КОРЕНЬ / имя, f"{ИМЯ}/{имя}"))
+        состав.append((КОРЕНЬ / имя, f"{ПАПКА}/{имя}"))
+    # Значок: первый найденный. Свой кладётся в корень проекта тем же именем.
+    for имя in ("favicon.svg", "favicon.png", "favicon.ico"):
+        if (КОРЕНЬ / имя).is_file():
+            состав.append((КОРЕНЬ / имя, f"{ПАПКА}/{имя}"))
+            break
     for имя in ("ЗАПУСК.bat", "ЧИТАТЬ ПЕРВЫМ.txt"):
-        состав.append((КОРЕНЬ / "поставка" / имя, f"{ИМЯ}/{имя}"))
+        состав.append((КОРЕНЬ / "поставка" / имя, f"{ПАПКА}/{имя}"))
     return состав
 
 
@@ -54,7 +64,7 @@ def main() -> int:
             print(f"ОТКАЗ: {о}", file=sys.stderr)
         return 1
 
-    архив = КОРЕНЬ / "поставка" / f"{ИМЯ}.zip"
+    архив = КОРЕНЬ / "поставка" / f"{ПАПКА}.zip"
     архив.parent.mkdir(exist_ok=True)
     архив.unlink(missing_ok=True)
     with zipfile.ZipFile(архив, "w", zipfile.ZIP_DEFLATED) as z:
@@ -64,6 +74,7 @@ def main() -> int:
     с_utf8 = sum(1 for i in zipfile.ZipFile(архив).infolist() if i.flag_bits & 0x800)
     кириллических = sum(1 for _, в in состав if any(ord(c) > 127 for c in в))
     print(f"готово: {архив}")
+    print(f"версия: {ВЕРСИЯ}")
     print(f"файлов: {len(состав)}, размер: {архив.stat().st_size // 1024} КБ")
     print(f"имён с пометкой UTF-8: {с_utf8} (кириллических имён: {кириллических})")
     return 0

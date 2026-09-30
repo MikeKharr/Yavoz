@@ -2,6 +2,7 @@
 
 СТРАНИЦА = r"""<!doctype html><html lang="ru"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1"><title>Yavoz</title>
+<link rel="icon" href="/favicon.ico">
 <style>
 :root{
   --фон:#faf9f7; --плита:#fffefc; --текст:#1c1b19; --серый:#6b6862; --рамка:#e2ded7;
@@ -21,6 +22,7 @@ body{margin:0;background:var(--фон);color:var(--текст);
 main{max-width:920px;margin:0 auto;display:flex;flex-direction:column;gap:24px}
 h1{font-size:25px;margin:0 0 2px;letter-spacing:-.01em}
 p.под{color:var(--серый);margin:0}
+.версия{font-size:12px;opacity:.7}
 section{background:var(--плита);border:1px solid var(--рамка);border-radius:12px;padding:18px 20px}
 h2{font-size:15px;margin:0 0 12px;letter-spacing:.02em;text-transform:uppercase;color:var(--серый)}
 label{display:block;font-size:13px;color:var(--серый);margin:0 0 6px}
@@ -87,7 +89,7 @@ textarea:focus-visible{outline:2px solid var(--акцент);outline-offset:1px}
 <header>
   <h1>Yavoz</h1>
   <p class="под">Каталог на Яндекс.Диске → рядом появятся копии с приставкой «обработано»,
-  со заполненными столбцами U и V.</p>
+  с заполненными столбцами U и V. <span id="версия" class="версия"></span></p>
 </header>
 
 <section>
@@ -417,6 +419,7 @@ async function состояние(){
   else { $('#токен').value = ''; $('#токен').placeholder = 'вставьте токен'; }
   if(с.каталог) $('#каталог').value = с.каталог;
   if(typeof с.предел_строк === 'number') $('#предел').value = с.предел_строк;
+  if(с.версия) $('#версия').textContent = 'версия ' + с.версия;
   обновитьСсылку();
 }
 состояние();
