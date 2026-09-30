@@ -136,3 +136,29 @@ class ИзвлечениеТекста(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Реестры(unittest.TestCase):
+    """Найдено живым прогоном: checko и форумы получали вес как обычные сайты."""
+
+    def test_реестры_уходят_в_минус(self):
+        for host in ("https://checko.ru/company/mou-ssh-3", "https://www.rusprofile.ru/person/x",
+                     "https://audit-it.ru/x", "https://ru.wikipedia.org/wiki/x"):
+            self.assertLess(оценить_адрес(host).балл, 0, host)
+
+    def test_форум_уходит_в_минус_и_не_даёт_высокой(self):
+        о = оценить_адрес("https://dmitrovsk1943.mybb.ru/viewtopic.php?id=269")
+        self.assertLess(о.балл, 0)
+        доводы = о.доводы + ["+20 фамилия и имя на странице",
+                             "+25 должность на странице (2 из 2)"]
+        self.assertNotEqual(уверенность(80, доводы), ВЫСОКАЯ)
+
+    def test_путь_person_на_реестре_не_даёт_надбавки(self):
+        # Найдено этим же тестом: +25 за путь гасило -25 за реестр.
+        о = оценить_адрес("https://www.rusprofile.ru/person/x")
+        self.assertNotIn("раздел о сотрудниках", " ".join(о.доводы))
+        self.assertLess(о.балл, 0)
+
+    def test_на_своём_сайте_надбавка_за_путь_остаётся(self):
+        о = оценить_адрес("https://kursksu.ru/people/view/316")
+        self.assertIn("раздел о сотрудниках", " ".join(о.доводы))

@@ -29,7 +29,11 @@ MAX_BYTES = 800_000
 АГРЕГАТОРЫ = ("hh.ru", "zoon.ru", "prodoctorov", "spravka", "rusprofile", "list-org",
               "zachestnyibiznes", "sbis.ru", "orgpage", "yell.ru", "2gis", "profi.ru",
               "avito.ru", "linkedin.", "wikipedia.org", "wikiwand", "ru.ruwiki",
-              "vuzopedia", "testsoch", "clinica", "docdoc")
+              "vuzopedia", "testsoch", "clinica", "docdoc", "checko.ru", "audit-it",
+              "sbis.", "bizly", "seldon", "kartoteka")
+# Форумы и доски: текст пишет кто угодно, подтверждением работодателя не являются.
+ФОРУМЫ = ("mybb.", "forum", "pikabu", "otzovik", "irecommend", "livejournal",
+          "blogspot", "ucoz", "narod.ru")
 НОВОСТИ = ("ria.ru", "tass.ru", "rbc.ru", "kommersant", "iz.ru", "lenta.ru", "gazeta.ru",
            "interfax", "regnum", "news", "vesti")
 
@@ -84,14 +88,25 @@ def оценить_адрес(url: str) -> Оценка:
     о = Оценка()
     host = (urlsplit(url).hostname or "").lower()
     path = urlsplit(url).path.lower()
+
+    соцсеть = any(с in host for с in СОЦСЕТИ)
+    реестр = any(а in host for а in АГРЕГАТОРЫ)
+    форум = any(ф in host for ф in ФОРУМЫ)
+    свой_сайт = not (соцсеть or реестр or форум)
+
     if any(host.endswith(d) or d.strip(".") + "." in host for d in ОФИЦИАЛЬНЫЕ):
         о.плюс(40, "государственный домен")
-    if any(п in path for п in ПУТИ):
+    # Путь вида /person или /sveden значит «раздел о сотрудниках работодателя»
+    # только на сайте самого работодателя. На реестре он есть у каждой карточки
+    # и раньше гасил штраф: rusprofile.ru/person/… выходил в плюс.
+    if свой_сайт and any(п in path for п in ПУТИ):
         о.плюс(25, "раздел о сотрудниках или структуре")
-    if any(с in host for с in СОЦСЕТИ):
+    if соцсеть:
         о.плюс(-30, "соцсеть")
-    if any(а in host for а in АГРЕГАТОРЫ):
+    if реестр:
         о.плюс(-25, "агрегатор или справочник")
+    if форум:
+        о.плюс(-25, "форум или блог")
     if any(н in host for н in НОВОСТИ):
         о.плюс(-12, "новостной сайт")
     if host.endswith(".ru") or host.endswith(".рф"):
@@ -199,8 +214,8 @@ def уверенность(балл: int, доводы: list[str]) -> str:
     должность = есть("должность на странице")
     # Реестр, справочник, соцсеть и главная страница высокой не дают никогда,
     # сколько бы баллов ни набралось: это не публикация работодателя.
-    не_источник = (есть("агрегатор") or есть("соцсеть") or есть("главная страница")
-                   or есть("однофамилец"))
+    не_источник = (есть("агрегатор") or есть("соцсеть") or есть("форум")
+                   or есть("главная страница") or есть("однофамилец"))
     if не_источник:
         return СРЕДНЯЯ if (человек and должность and балл >= 40) else НИЗКАЯ
     if балл >= 70 and человек and должность:
