@@ -10,6 +10,7 @@ from pathlib import Path
 from urllib.parse import parse_qs, urlparse
 
 from . import stats
+from .catalog import КЛАССЫ, ФАЙЛ, Каталог
 from .config import ROOT, Config, read_config
 from .page import СТРАНИЦА
 from .process import Обработчик, журнал, сохранить_журнал
@@ -18,13 +19,14 @@ from .secrets import Хранилище
 from .yadisk import PREFIX, Disk, processed_path
 
 РАБОЧИЙ = ROOT / "work"
+КАТАЛОГ = ROOT / ФАЙЛ
 ПРЕДЕЛ_ТЕЛА = 64 * 1024
 
 
 def обработать_каталог(cfg: Config, токен: str, folder: str, событие) -> None:
     диск = Disk(токен)
     поиск = создать(cfg.источник, cfg.search_api_key, cfg.folder_id)
-    обработчик = Обработчик(поиск)
+    обработчик = Обработчик(поиск, каталог=Каталог.прочитать(КАТАЛОГ))
     файлы = диск.list_xlsx(folder)
     событие({"вид": "файл", "лист": "—", "строк": 0,
              "файл": f"найдено файлов: {len(файлы)}"})
@@ -71,11 +73,20 @@ class Ручка(BaseHTTPRequestHandler):
             self._отдать(200, СТРАНИЦА.encode("utf-8"), "text/html; charset=utf-8")
         elif путь == "/api/state":
             self._json(200, {"токен_задан": self.токены.задан,
+                             "токен_маска": self.токены.маска,
                              "каталог": type(self).последний_каталог,
                              "источник": self.cfg.источник,
                              "предел_строк": self.cfg.max_rows})
         elif путь == "/api/stats":
             self._json(200, stats.как_json(РАБОЧИЙ))
+        elif путь == "/api/catalog":
+            к = Каталог.прочитать(КАТАЛОГ)
+            self._json(200, {
+                "правила": к.правила,
+                "классы": [{"имя": кл.имя, "вес": кл.вес, "потолок": кл.потолок,
+                            "описание": кл.описание}
+                           for кл in sorted(КЛАССЫ.values(), key=lambda к: к.порядок)],
+            })
         elif путь == "/run":
             self._поток(parse_qs(urlparse(self.path).query).get("folder", ["disk:/"])[0])
         else:
@@ -83,7 +94,7 @@ class Ручка(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:
         путь = urlparse(self.path).path.rstrip("/") or "/"
-        if путь != "/api/token":
+        if путь not in ("/api/token", "/api/catalog"):
             self._json(404, {"ошибка": "нет такого пути"})
             return
         длина = int(self.headers.get("content-length") or 0)
@@ -94,6 +105,9 @@ class Ручка(BaseHTTPRequestHandler):
             данные = json.loads(self.rfile.read(длина) or b"{}")
         except json.JSONDecodeError:
             self._json(400, {"ошибка": "тело не разобралось как JSON"})
+            return
+        if путь == "/api/catalog":
+            self._сохранить_каталог(данные)
             return
         try:
             # Значение токена не попадает ни в журнал, ни в ответ.
@@ -106,6 +120,32 @@ class Ручка(BaseHTTPRequestHandler):
             self._json(500, {"ошибка": "не удалось записать .env"})
             return
         self._json(200, {"задан": True, "сохранён": bool(данные.get("сохранить"))})
+
+    def _сохранить_каталог(self, данные: dict) -> None:
+        правила = данные.get("правила")
+        if not isinstance(правила, dict):
+            self._json(400, {"ошибка": "нет поля «правила»"})
+            return
+        чистые = {}
+        for класс in КЛАССЫ:
+            значения = правила.get(класс, [])
+            if not isinstance(значения, list):
+                self._json(400, {"ошибка": f"«{класс}» должен быть списком"})
+                return
+            # Порядок сохраняем, повторы и пустые строки убираем.
+            видели, список = set(), []
+            for з in значения:
+                з = str(з).strip().lower()
+                if з and з not in видели:
+                    видели.add(з)
+                    список.append(з)
+            чистые[класс] = список
+        try:
+            Каталог(правила=чистые).записать(КАТАЛОГ)
+        except OSError:
+            self._json(500, {"ошибка": "не удалось записать каталог"})
+            return
+        self._json(200, {"сохранён": True, "правила": чистые})
 
     # --- поток событий ---
 

@@ -1,0 +1,71 @@
+{
+  "предпочитаемый": [],
+  "государственный": [
+    ".gov.ru",
+    ".gosuslugi.ru",
+    ".mil.ru",
+    ".edu.ru",
+    ".ac.ru",
+    ".mos.ru",
+    "gosweb.gosuslugi.ru"
+  ],
+  "новости": [
+    "ria.ru",
+    "tass.ru",
+    "rbc.ru",
+    "kommersant",
+    "iz.ru",
+    "lenta.ru",
+    "gazeta.ru",
+    "interfax",
+    "regnum",
+    "vesti"
+  ],
+  "форум": [
+    "mybb.",
+    "forum",
+    "pikabu",
+    "otzovik",
+    "irecommend",
+    "livejournal",
+    "blogspot",
+    "ucoz",
+    "narod.ru"
+  ],
+  "реестр": [
+    "hh.ru",
+    "zoon.ru",
+    "prodoctorov",
+    "spravka",
+    "rusprofile",
+    "list-org",
+    "zachestnyibiznes",
+    "sbis.",
+    "orgpage",
+    "yell.ru",
+    "2gis",
+    "profi.ru",
+    "avito.ru",
+    "linkedin.",
+    "wikipedia.org",
+    "wikiwand",
+    "ru.ruwiki",
+    "vuzopedia",
+    "checko.ru",
+    "audit-it",
+    "seldon",
+    "kartoteka"
+  ],
+  "соцсеть": [
+    "vk.com",
+    "vk.ru",
+    "ok.ru",
+    "t.me",
+    "telegram",
+    "dzen.ru",
+    "facebook.",
+    "instagram.",
+    "twitter.",
+    "x.com"
+  ]
+}

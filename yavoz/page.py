@@ -67,6 +67,15 @@ summary{padding:14px 20px;cursor:pointer;font-size:14px;color:var(--акцент
   padding:1px 5px;font-size:13px}
 .руководство table{margin:8px 0}
 #шапка{font-size:13.5px;color:var(--серый);margin:0 0 12px}
+#классы{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:14px;margin-top:14px}
+.класс label{font-size:13px;line-height:1.4}
+.класс b{color:var(--текст);font-size:14px}
+.вес{font-variant-numeric:tabular-nums;color:var(--акцент)}
+.потолок{font-size:12px}
+textarea{width:100%;margin-top:6px;padding:8px 10px;border:1px solid var(--рамка);
+  border-radius:8px;background:var(--фон);color:inherit;font:13px/1.5 ui-monospace,
+  SFMono-Regular,Menlo,monospace;resize:vertical}
+textarea:focus-visible{outline:2px solid var(--акцент);outline-offset:1px}
 .пусто{color:var(--серый);font-size:14px;margin:0}
 @media (max-width:520px){
   body{padding:20px 16px}
@@ -86,7 +95,7 @@ summary{padding:14px 20px;cursor:pointer;font-size:14px;color:var(--акцент
   <div class="строка">
     <div>
       <label for="токен">OAuth-токен Яндекс.Диска</label>
-      <input id="токен" type="password" autocomplete="off" spellcheck="false"
+      <input id="токен" type="text" autocomplete="off" spellcheck="false"
              placeholder="вставьте токен">
     </div>
     <button id="сохранить" class="тихая">Сохранить</button>
@@ -99,7 +108,10 @@ summary{padding:14px 20px;cursor:pointer;font-size:14px;color:var(--акцент
     — на этой странице войдите под своей учётной записью и нажмите
     «Получить OAuth-токен», затем скопируйте выданную строку сюда.
     Токен уходит только на этот локальный сервер, передаётся методом POST (не в адресе)
-    и никуда больше не отправляется.
+    и никуда больше не отправляется. Сохранённый токен подставлен маской: видны
+    первые два и последние четыре знака, остальное скрыто. Чтобы заменить — впишите
+    новый поверх; маску обратно сервер не примет. Сохранённый токен показан маской — видны первые
+    два и последние четыре знака; чтобы заменить, впишите новый поверх.
   </p>
 </section>
 
@@ -124,6 +136,18 @@ summary{padding:14px 20px;cursor:pointer;font-size:14px;color:var(--акцент
 <section>
   <h2>Обработанные файлы</h2>
   <div id="сводка"><p class="пусто">Пока ничего не обработано.</p></div>
+</section>
+
+<section>
+  <h2>Каталог сайтов</h2>
+  <p class="помощь" id="о-каталоге">Правила ранжирования лежат данными, а не в коде.
+  Домен ищется вхождением, по одному в строке. Первое совпавшее правило решает, порядок
+  классов задан и не зависит от порядка строк.</p>
+  <div id="классы"></div>
+  <div class="строка" style="margin-top:14px">
+    <button id="сохранить-каталог">Сохранить каталог</button>
+    <button id="сбросить-каталог" class="тихая">Вернуть умолчания</button>
+  </div>
 </section>
 
 <section>
@@ -220,33 +244,36 @@ const ДЕЙСТВИЯ = ['заполнено','пропущено','не най
 async function сохранитьТокен(){
   const токен = $('#токен').value.trim();
   if(!токен){ помощь('Вставьте токен.', true); return false; }
+  if(токен.includes('•')){ помощь('Это маска сохранённого токена — впишите новый поверх.', true); return false; }
   $('#сохранить').disabled = true;
   try{
     const о = await fetch('/api/token', {method:'POST', headers:{'Content-Type':'application/json'},
       body: JSON.stringify({токен, сохранить: $('#в-файл').checked})});
     const д = await о.json();
     if(!о.ok){ помощь(д.ошибка || 'Не удалось сохранить.', true); return false; }
-    $('#токен').value = '';
-    $('#токен').placeholder = 'токен задан';
+    await состояние();
     помощь(д.сохранён ? 'Токен задан и записан в .env.' : 'Токен задан на время работы.', false);
     return true;
   } finally { $('#сохранить').disabled = false; }
 }
-function помощь(текст, плохо){
+function сообщить(послеЧего, текст, плохо){
+  const ключ = 'итог' + послеЧего.replace('#','-');
+  const прежний = document.getElementById(ключ);
+  if(прежний) прежний.remove();
   const p = document.createElement('p');
   p.className = 'помощь';
+  p.id = ключ;
   p.style.color = плохо ? 'var(--ошибка)' : 'var(--успех)';
   p.textContent = текст;
-  const прежний = document.getElementById('итог-токена');
-  if(прежний) прежний.remove();
-  p.id = 'итог-токена';
-  $('#помощь-токен').after(p);
+  $(послеЧего).after(p);
 }
+const помощь = (текст, плохо) => сообщить('#помощь-токен', текст, плохо);
 $('#сохранить').onclick = сохранитьТокен;
 $('#токен').addEventListener('keydown', e => { if(e.key === 'Enter') сохранитьТокен(); });
 
 $('#пуск').onclick = async () => {
-  if($('#токен').value.trim()){ if(!await сохранитьТокен()) return; }
+  const введён = $('#токен').value.trim();
+  if(введён && !введён.includes('•')){ if(!await сохранитьТокен()) return; }
   const каталог = $('#каталог').value.trim();
   if(!каталог) return;
   $('#пуск').disabled = true;
@@ -303,6 +330,56 @@ function обновитьСсылку(){
 }
 $('#каталог').addEventListener('input', обновитьСсылку);
 
+let УМОЛЧАНИЯ_КАТАЛОГА = null;
+
+async function каталог(){
+  let д;
+  try { д = await (await fetch('/api/catalog')).json(); } catch { return; }
+  if(!УМОЛЧАНИЯ_КАТАЛОГА) УМОЛЧАНИЯ_КАТАЛОГА = JSON.parse(JSON.stringify(д.правила));
+  const цель = $('#классы');
+  цель.innerHTML = '';
+  for(const к of д.классы){
+    if(к.имя === 'обычный') continue;
+    const блок = document.createElement('div');
+    блок.className = 'класс';
+    const знак = к.вес > 0 ? '+' + к.вес : к.вес;
+    блок.innerHTML = '<label for="кл-' + экран(к.имя) + '">'
+      + '<b>' + экран(к.имя) + '</b> <span class="вес">' + знак + '</span>'
+      + ' <span class="потолок">не выше «' + экран(к.потолок) + '»</span><br>'
+      + экран(к.описание) + '</label>'
+      + '<textarea id="кл-' + экран(к.имя) + '" rows="4" spellcheck="false"></textarea>';
+    цель.appendChild(блок);
+    блок.querySelector('textarea').value = (д.правила[к.имя] || []).join('\n');
+  }
+}
+function собратьКаталог(){
+  const правила = {};
+  document.querySelectorAll('#классы textarea').forEach(t => {
+    правила[t.id.slice(3)] = t.value.split('\n').map(s => s.trim()).filter(Boolean);
+  });
+  правила['обычный'] = [];
+  return правила;
+}
+$('#сохранить-каталог').onclick = async () => {
+  const кн = $('#сохранить-каталог'); кн.disabled = true;
+  try{
+    const о = await fetch('/api/catalog', {method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({правила: собратьКаталог()})});
+    const д = await о.json();
+    сообщить('#о-каталоге', о.ok ? 'Каталог сохранён.' : (д.ошибка || 'Не удалось.'), !о.ok);
+    if(о.ok) каталог();
+  } finally { кн.disabled = false; }
+};
+$('#сбросить-каталог').onclick = () => {
+  if(!УМОЛЧАНИЯ_КАТАЛОГА) return;
+  for(const [имя, список] of Object.entries(УМОЛЧАНИЯ_КАТАЛОГА)){
+    const t = document.getElementById('кл-' + имя);
+    if(t) t.value = (список || []).join('\n');
+  }
+  сообщить('#о-каталоге', 'Умолчания подставлены — нажмите «Сохранить каталог».', false);
+};
+
 async function сводка(){
   let д;
   try { д = await (await fetch('/api/stats')).json(); } catch { return; }
@@ -324,10 +401,16 @@ async function сводка(){
 }
 function клетка(н){ н = н || 0; return '<td' + (н ? '' : ' class="ноль"') + '>' + н + '</td>'; }
 
-fetch('/api/state').then(r => r.json()).then(с => {
-  if(с.токен_задан) $('#токен').placeholder = 'токен задан';
+async function состояние(){
+  let с;
+  try { с = await (await fetch('/api/state')).json(); } catch { return; }
+  if(с.токен_маска){ $('#токен').value = с.токен_маска; }
+  else { $('#токен').value = ''; $('#токен').placeholder = 'вставьте токен'; }
   if(с.каталог) $('#каталог').value = с.каталог;
-}).catch(() => {}).finally(обновитьСсылку);
+  обновитьСсылку();
+}
+состояние();
 обновитьСсылку();
 сводка();
+каталог();
 </script></body></html>"""
